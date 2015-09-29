@@ -1,0 +1,8 @@
+MEMORY = "2048"
+CPU = "2"
+IP = "192.168.33.10"
+BOX = "ubuntu/trusty64"
+INSTALL_DOCKER = true
+GUI = false
+USE_NFS = true
+HOSTNAME = "erpnext.localhost.com"

@@ -1,0 +1,13 @@
+data:
+  image: busybox
+  volumes:
+     - /var/lib/mysql
+     - /home/frappe/frappe-bench/sites/site1.local
+
+#erpnext:
+#    image: urbanandco/erpnext:6.0
+#    volumes_from:
+#       - data
+#    ports:
+#       - "80:80"
+#    hostname: "erpnext.localhost.com"
