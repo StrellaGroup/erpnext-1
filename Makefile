@@ -11,7 +11,8 @@ help:
 	@echo "  5. make logs        - view logs"
 	@echo "  6. make bash        - execute bash"
 	@echo "  7. make passwords   - get the generated passwords during install"
-	@echo "  8. make remove      - stop and remove the container"	
+	@echo "  8. make purge       - stop and remove the container"	
+	@echo "  9. make removeimg   - stop and remove the container and all erpnext images"	
 
 base:
 	@docker pull urbanandco/ubuntu:14.04
@@ -48,6 +49,6 @@ bash:
 	
 passwords:
 	@docker exec -ti erpnext cat /root/frappe_passwords.txt	
-
-remove:
-	@docker rm erpnext
+	
+removeimg:
+	@docker images | grep 'erpnext' | awk '{print $3}' | xargs --no-run-if-empty docker rmi
