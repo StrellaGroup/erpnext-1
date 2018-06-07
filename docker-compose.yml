@@ -1,13 +1,70 @@
-data:
-  image: busybox
-  volumes:
-     - /var/lib/mysql
-     - /home/frappe/frappe-bench/sites/site1.local
+version: '2'
+services:
 
-erpnext:
-    image: urbanandco/erpnext:6.3.2
-    volumes_from:
-       - data
+  mariadb:
+    image: "mariadb:10.2"
+    environment:
+      - MYSQL_ROOT_PASSWORD=123
+      - MYSQL_USER=root
+    volumes:
+      - frappe-mariadb-conf:/etc/mysql/conf.d
     ports:
-       - "80:80"
-    hostname: "erpnext.localhost.com"
+      - "3307:3306" #mariadb-port
+    container_name: mariadb
+
+  redis-cache:
+    image: redis:alpine
+    volumes:
+      - frappe-redis-cache-conf:/etc/conf.d/
+    command: ["redis-server","/etc/conf.d/redis-cache.conf"]
+    container_name: redis-cache
+
+  redis-queue:
+    image: redis:alpine
+    volumes:
+      - frappe-redis-queue-conf:/etc/conf.d/
+    command: ["redis-server","/etc/conf.d/redis-queue.conf"]
+    container_name: redis-queue
+
+  redis-socketio:
+    image: redis:alpine
+    volumes:
+      - frappe-redis-socketio-conf:/etc/conf.d/
+    command: ["redis-server","/etc/conf.d/redis-socketio.conf"]
+    container_name: redis-socketio
+
+  frappe:
+    volumes:
+      - frappe-frappe-bench-workdir:/home/frappe/frappe-bench:rw
+    build: .
+    working_dir: /home/frappe/frappe-bench
+    ports:
+      - "8999:80" #webserver_port
+      - "8000:8000" #webserver_port
+      - "9000:9000" #socketio_port
+      - "6787:6787" #file_watcher_port
+    stdin_open: true
+    tty: true
+    links:
+      - redis-cache
+      - redis-queue
+      - redis-socketio
+      - mariadb
+    depends_on:
+      - mariadb
+      - redis-cache
+      - redis-queue
+      - redis-socketio
+    container_name: frappe
+
+volumes:
+  frappe-frappe-bench-workdir:
+    external: true
+  frappe-mariadb-conf:
+    external: true
+  frappe-redis-cache-conf:
+    external: true
+  frappe-redis-queue-conf:
+    external: true
+  frappe-redis-socketio-conf:
+    external: true

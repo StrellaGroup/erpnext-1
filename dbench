@@ -1,0 +1,100 @@
+#!/bin/bash
+
+display_usage() {
+  echo "$(basename "$0") [-h] [-c \"<command to be executed inside container>\"]"
+  echo ''
+  echo 'where:'
+  echo '    -h    show this help text'
+  echo '    -c    execute a command inside docker using docker exec'
+  echo '    -s    adds site-names to /etc/hosts file in the container to facilitate multisite access'
+  echo '    init  initializes frappe-bench adds a new-site bench-manager.local and installs the bench_manager app
+            app onto it'
+}
+
+if [[ $# -eq 0 ]]; then
+  docker exec -it frappe bash
+
+elif [ $1 == 'init_volumes' ]
+then
+
+  docker rm helper
+  docker volume rm frappe-frappe-bench-workdir
+  docker volume rm frappe-mariadb-conf
+  docker volume rm frappe-redis-cache-conf
+  docker volume rm frappe-redis-queue-conf
+  docker volume rm frappe-redis-socketio-conf
+
+  docker volume create frappe-frappe-bench-workdir 
+  docker run -v frappe-frappe-bench-workdir:/data --name helper alpine true
+  #docker cp ./frappe-bench/. helper:/data
+  docker rm helper
+
+  docker volume create frappe-mariadb-conf 
+  docker run -v frappe-mariadb-conf:/data --name helper alpine true
+  docker cp ./conf/mariadb/. helper:/data
+  docker rm helper
+
+  docker volume create frappe-redis-cache-conf
+  docker run -v frappe-redis-cache-conf:/data --name helper alpine true
+  docker cp ./conf/redis/redis-cache.conf helper:/data
+  docker rm helper
+
+  docker volume create frappe-redis-queue-conf
+  docker run -v frappe-redis-queue-conf:/data --name helper alpine true
+  docker cp ./conf/redis/redis-queue.conf helper:/data
+  docker rm helper
+
+  docker volume create frappe-redis-socketio-conf
+  docker run -v frappe-redis-socketio-conf:/data --name helper alpine true
+  docker cp ./conf/redis/redis-socketio.conf helper:/data
+  docker rm helper
+
+
+elif [ $1 == 'init_frappe' ]
+then
+        
+  docker exec -it frappe bash -c "sudo chown -R frappe:frappe /home/frappe/frappe-bench/"
+  docker exec -it frappe bash -c "cd /home/frappe && bench init frappe-bench --ignore-exist --skip-redis-config-generation"
+  docker exec -it frappe bash -c "sed -i 's@redis://localhost:13000@redis://redis-cache:13000@' /home/frappe/frappe-bench/sites/common_site_config.json"
+  docker exec -it frappe bash -c "sed -i 's@redis://localhost:11000@redis://redis-queue:11000@' /home/frappe/frappe-bench/sites/common_site_config.json"
+  docker exec -it frappe bash -c "sed -i 's@redis://localhost:12000@redis://redis-socketio:12000@' /home/frappe/frappe-bench/sites/common_site_config.json"
+  docker exec -it frappe bash -c "sed -i 's@}@,\"root_password\": \"123\"\n}@' /home/frappe/frappe-bench/sites/common_site_config.json"
+  docker exec -it frappe bash -c "sed -i 's@}@,\"admin_password\": \"admin\"\n}@' /home/frappe/frappe-bench/sites/common_site_config.json"
+
+  docker exec -it frappe bash -c "cd /home/frappe/frappe-bench && bench set-mariadb-host mariadb"
+  docker exec -it frappe bash -c "cd /home/frappe/frappe-bench && bench new-site site1.local"
+  docker exec -it frappe bash -c 'cd /home/frappe/frappe-bench && bench get-app --branch "$NEXTERP_VERSION" erpnext'
+  docker exec -it frappe bash -c "cd /home/frappe/frappe-bench && bench --site site1.local install-app erpnext"
+  docker exec -it frappe bash -c "cd /home/frappe/frappe-bench && bench setup supervisor && sudo ln -sfn /home/frappe/frappe-bench/config/supervisor.conf /etc/supervisor/conf.d/frappe-bench.conf"
+  docker exec -it frappe bash -c "cd /home/frappe/frappe-bench && bench setup nginx && sudo ln -sfn /home/frappe/frappe-bench/config/nginx.conf /etc/nginx/conf.d/frappe-bench.conf && sudo /etc/init.d/nginx start"
+  docker exec -it frappe bash -c "sudo /usr/bin/supervisord -c /etc/supervisor/supervisord.conf"
+else
+  while getopts ':hsc:' option; do
+    case "$option" in
+      h)
+         display_usage
+         exit
+         ;;
+      c)
+         docker exec -it frappe bash -c "bench $OPTARG"
+         ;;
+      s)
+         a=$(frappe-bench && ls sites/*/site_config.json | grep -o '/.\+/')
+         a="${a//$'\n'/ }"
+         a=$(echo $a | tr -d / )
+         result="127.0.0.1 ${a}"
+         echo $result
+         docker exec -u root -i frappe bash -c "echo ${result} | tee --append /etc/hosts"
+         docker exec -itu root frappe bash -c "printf '# User rules for frappe\nfrappe ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/frappe"
+         ;;
+      \?)
+        echo "Invalid option: -$OPTARG" >&2
+        exit 1
+        ;;
+      :)
+        echo "Option -$OPTARG requires an argument." >&2
+        exit 1
+        ;;
+    esac
+  done
+fi

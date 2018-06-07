@@ -1,32 +1,46 @@
-FROM urbanandco/ubuntu:14.04
-MAINTAINER Istvan Orban <istvan.orban@gmail.com>
+FROM ubuntu:16.04
+MAINTAINER frappé
 
-ENV ERPNEXT_USER="frappe" \
-    ERPNEXT_HOME="/home/frappe" \
-	ERPNEXT_SETUP_DIR="/var/cache/erpnext" \
-	ERPNEXT_DB_DIR="/var/lib/mysql"
-	
-ENV	ERPNEXT_INSTALL_DIR="${ERPNEXT_HOME}/frappe-bench" \
-	ERPNEXT_BACKUP_DIR="${ERPNEXT_HOME}/data/sites/site1.local/backups"
+USER root
+RUN apt-get update
+RUN apt-get install -y iputils-ping
+RUN apt-get install -y git build-essential python-setuptools python-dev libffi-dev libssl-dev
+RUN apt-get install -y redis-tools software-properties-common libxrender1 libxext6 xfonts-75dpi xfonts-base
+RUN apt-get install -y libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev python-tk apt-transport-https libsasl2-dev libldap2-dev libtiff5-dev tcl8.6-dev tk8.6-dev
+RUN apt-get install -y wget supervisor nginx
+RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
+RUN pip install --upgrade setuptools pip
+RUN useradd -ms /bin/bash frappe
+RUN apt-get install -y curl
+RUN apt-get install -y rlwrap
+RUN apt-get install redis-tools
+RUN apt-get install -y nano
+RUN apt-get install -y vim && apt-get install -y sudo && usermod -aG sudo frappe && printf '# User rules for frappe\nfrappe ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/frappe
 
-RUN apt-get update \
-	&& apt-get install -y sudo cron supervisor logrotate \
-	&& rm -rf /var/lib/apt/lists/*	
+# Generate locale C.UTF-8 for mariadb and general locale data
+ENV LANG C.UTF-8
 
-RUN useradd -ms /bin/bash ${ERPNEXT_USER} \
-	&& mkdir -p ${ERPNEXT_BACKUP_DIR} \
-	&& chown -R ${ERPNEXT_USER}:${ERPNEXT_USER} ${ERPNEXT_HOME}
-	
-COPY assets/setup/ ${ERPNEXT_SETUP_DIR}/
-COPY assets/config/ ${ERPNEXT_SETUP_DIR}/config/
+#nodejs
+RUN apt-get install curl
+RUN curl https://deb.nodesource.com/node_6.x/pool/main/n/nodejs/nodejs_6.7.0-1nodesource1~xenial1_amd64.deb > node.deb \
+ && dpkg -i node.deb \
+ && rm node.deb
+RUN apt-get install -y wkhtmltopdf
 
-COPY entrypoint.sh /sbin/entrypoint.sh
-RUN chmod 755 /sbin/entrypoint.sh
+ARG BENCH_VERSION=master
+ARG NEXTERP_VERSION=v10.1.36
+ENV BENCH_VERSION=$BENCH_VERSION
+ENV NEXTERP_VERSION=$NEXTERP_VERSION
 
-ENTRYPOINT ["/sbin/entrypoint.sh"]
+USER frappe
+WORKDIR /home/frappe
+RUN git clone -b ${BENCH_VERSION}  https://github.com/frappe/bench.git bench-repo
 
-EXPOSE 80/tcp
+USER root
+RUN pip install -e bench-repo
+RUN apt-get install -y libmysqlclient-dev mariadb-client mariadb-common
+RUN npm install -g yarn
+RUN chown -R frappe:frappe /home/frappe/*
 
-VOLUME ["${ERPNEXT_BACKUP_DIR}", "${ERPNEXT_DB_DIR}"]
-
-CMD ["app:start"]
+USER frappe
+WORKDIR /home/frappe/frappe-bench
