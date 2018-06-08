@@ -1,17 +1,3 @@
-# frappe docker with the multi-container
-
-- This project is a workaround for original [frappe_docker](https://github.com/frappe/frappe_docker) which is can not be run on ``Windows 10`` due to ``NTFS`` permission problems. It uses ``named volumes`` instead of host folders.
-
-- [Docker](https://docker.com/) is an open source project to pack, ship and run any Linux application in a lighter weight, faster container than a traditional virtual machine.
-
-- Docker makes it much easier to deploy [frappe](https://github.com/frappe/frappe) on your servers.
-
-- This container uses [bench](https://github.com/frappe/bench) to install frappe.
-
-## Getting Started
-
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
-
 ### Prerequisites
 
 [Docker](https://www.docker.com/)
@@ -32,8 +18,6 @@ ports:
       - "9000:9000"   socketio-port
       - "6787:6787"   file-watcher-port
 ```
-
-Expose port 3307 inside the container on port 3307 on ALL local host interfaces. In order to bind to only one interface, you may specify the host's IP address as `([<host_interface>:[host_port]])|(<host_port>):<container_port>[/udp]` as defined in the [docker port binding documentation](http://docs.docker.com/userguide/dockerlinks/). The port 3307 of the mariadb container and port 8000 of the frappe container is exposed to the host machine and other containers.
 
 #### volumes:
 
@@ -70,10 +54,6 @@ depends_on:
 ```
 Express dependency between services, which has two effects:
 
-1. docker-compose up will start services in dependency order. In the following example, mariadb and redis will be started before frappe.
-
-2. docker-compose up SERVICE will automatically include SERVICE’s dependencies. In the following example, docker-compose up docker_frappe will also create and start mariadb and redis.
-
 ### Installation
 
 #### 1. Installation Pre-requisites
@@ -86,20 +66,12 @@ Express dependency between services, which has two effects:
 
 * Clone this repo and change your working directory to frappe_docker
 	
-		git clone --depth 1 https://github.com/frappe/frappe_docker.git
-		cd frappe_docker  
             ./dbench init_volumes
 
 * Build the container and install bench inside the container.
 
-	1.Build the 5 linked containers frappe, mariadb, redis-cache, redis-queue and redis-socketio using this command. 	 Make sure your current working directory is frappe_docker which contains the docker-compose.yml and Dockerfile.
-	It creates a user, frappe inside the frappe container, whose working directory is /home/frappe. It also clones
-	the bench-repo from [here](https://github.com/frappe/bench)
-
-		docker-compose up -d
-
-	Note: Please do not remove the bench-repo directory the above commands will create
-
+		docker-compose build
+            docker-compose up -d
 
 
 #### Basic Usage
@@ -107,10 +79,6 @@ Express dependency between services, which has two effects:
 1.	First time setup 
  
 		./dbench init_frappe
-
-2.	Command to start all the containers
-
-		docker-compose start
 
 3.	Command to be executed everytime after starting your containers
 
@@ -123,23 +91,12 @@ Express dependency between services, which has two effects:
 
 5.	All bench commands can also be directly run from the host machine by using dbench. For instance ```bench start``` can be executed by running ```./dbench -c start```. Just preface the option with <b>./dbench -c</b>. For more information on dbench run the command ```./dbench -h```.
 
-For more info on how to build this docker container refer to this [Wiki](https://github.com/frappe/frappe_docker/wiki/Hitchhiker's-guide-to-building-this-frappe_docker-image)
-
-To login to Frappe / ERPNext, open your browser and go to `[your-external-ip]:8000`, probably `localhost:8000`
-
 The default username is "Administrator" and password is what you set when you created the new site.
 
 ## Based on
 
 * [frappe_docker](https://github.com/frappe/frappe_docker)
-
-## Built With
-
-* [Docker](https://www.docker.com/)
-
-## Contributing
-
-Feel free to contribute to this project and make the container better
+* https://github.com/ierturk/frappe_docker/tree/master/frappe-bench
 
 ## License
 
